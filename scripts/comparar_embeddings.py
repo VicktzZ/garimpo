@@ -34,6 +34,10 @@ def main() -> None:
     parser.add_argument("--db", default="data/garimpo.db")
     parser.add_argument("--cache", default="data/embeddings_cache.db")
     parser.add_argument("--modelos", nargs="+", default=["all-minilm", "bge-m3"])
+    parser.add_argument(
+        "--campo", default="texto_busca", choices=["texto_busca", "descricao"],
+        help="coluna usada pra gerar o embedding (a busca lexical usa sempre texto_busca)",
+    )
     args = parser.parse_args()
 
     df = carregar_df(args.db)
@@ -43,9 +47,9 @@ def main() -> None:
     for modelo in args.modelos:
         inicio = time.perf_counter()
         matrizes[modelo] = OllamaEmbedder(modelo=modelo, conn_cache=conn_cache).embed_lote(
-            df["texto_busca"].tolist()
+            df[args.campo].tolist()
         )
-        print(f"{modelo}: {matrizes[modelo].shape} em {time.perf_counter() - inicio:.0f}s")
+        print(f"{modelo} ({args.campo}): {matrizes[modelo].shape} em {time.perf_counter() - inicio:.0f}s")
 
     for nivel, fornecedores in NIVEIS.items():
         mascara = df["fornecedor"].isin(fornecedores).to_numpy()
