@@ -13,10 +13,11 @@ class TransporteFalso:
 
     def post(self, url: str, json: dict) -> dict:
         self.chamadas += 1
-        texto = json["prompt"]
-        semente = sum(ord(c) for c in texto) % 1000
-        rng = np.random.default_rng(semente)
-        return {"embedding": rng.random(8).tolist()}
+        vetores = []
+        for texto in json["input"]:
+            rng = np.random.default_rng(sum(ord(c) for c in texto) % 1000)
+            vetores.append(rng.random(8).tolist())
+        return {"embeddings": vetores}
 
 
 def test_embed_chama_transporte_na_primeira_vez():
@@ -37,7 +38,10 @@ def test_embed_usa_cache_na_segunda_vez():
     assert np.array_equal(v1, v2)
 
 
-def test_embed_lote_mantem_ordem():
-    embedder = OllamaEmbedder(transporte=TransporteFalso())
-    vetores = embedder.embed_lote(["a", "b", "c"])
+def test_embed_lote_mantem_ordem_e_agrupa_em_uma_chamada():
+    transporte = TransporteFalso()
+    embedder = OllamaEmbedder(transporte=transporte)
+    vetores = embedder.embed_lote(["a", "b", "a"])
     assert vetores.shape == (3, 8)
+    assert np.array_equal(vetores[0], vetores[2])
+    assert transporte.chamadas == 1

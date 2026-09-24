@@ -47,28 +47,39 @@ class OllamaEmbedder:
         transporte: Transporte | None = None,
     ) -> None:
         self.modelo = modelo
-        self._url = f"{base_url.rstrip('/')}/api/embeddings"
+        self._url = f"{base_url.rstrip('/')}/api/embed"
         self._conn = conn_cache or sqlite3.connect(":memory:")
         self._conn.executescript(_CACHE_SCHEMA)
         self._transporte = transporte or _TransporteRequests()
 
     def embed(self, texto: str) -> np.ndarray:
-        h = _hash_texto(texto)
-        linha = self._conn.execute(
-            "select vetor from embeddings_cache where modelo=? and texto_hash=?",
-            (self.modelo, h),
-        ).fetchone()
-        if linha is not None:
-            return np.frombuffer(linha[0], dtype=np.float32)
+        return self.embed_lote([texto])[0]
 
-        resposta = self._transporte.post(self._url, {"model": self.modelo, "prompt": texto})
-        vetor = np.array(resposta["embedding"], dtype=np.float32)
-        self._conn.execute(
-            "insert into embeddings_cache(modelo, texto_hash, vetor) values (?, ?, ?)",
-            (self.modelo, h, vetor.tobytes()),
-        )
-        self._conn.commit()
-        return vetor
+    def embed_lote(self, textos: list[str], tamanho_lote: int = 64) -> np.ndarray:
+        """Busca no cache; o que faltar vai ao Ollama em lotes via /api/embed."""
+        hashes = [_hash_texto(t) for t in textos]
+        vetores: dict[str, np.ndarray] = {}
+        for h in set(hashes):
+            linha = self._conn.execute(
+                "select vetor from embeddings_cache where modelo=? and texto_hash=?",
+                (self.modelo, h),
+            ).fetchone()
+            if linha is not None:
+                vetores[h] = np.frombuffer(linha[0], dtype=np.float32)
 
-    def embed_lote(self, textos: list[str]) -> np.ndarray:
-        return np.stack([self.embed(t) for t in textos])
+        faltantes = list({h: t for h, t in zip(hashes, textos) if h not in vetores}.items())
+        for i in range(0, len(faltantes), tamanho_lote):
+            lote = faltantes[i : i + tamanho_lote]
+            resposta = self._transporte.post(
+                self._url, {"model": self.modelo, "input": [t for _, t in lote]}
+            )
+            for (h, _), emb in zip(lote, resposta["embeddings"]):
+                vetor = np.array(emb, dtype=np.float32)
+                vetores[h] = vetor
+                self._conn.execute(
+                    "insert or replace into embeddings_cache(modelo, texto_hash, vetor) values (?, ?, ?)",
+                    (self.modelo, h, vetor.tobytes()),
+                )
+            self._conn.commit()
+
+        return np.stack([vetores[h] for h in hashes])
