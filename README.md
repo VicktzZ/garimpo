@@ -19,6 +19,16 @@ python scripts/avaliar.py
 pytest
 ```
 
+### Interface
+
+```bash
+ollama pull bge-m3                      # uma vez; depois roda sem internet
+python scripts/comparar_embeddings.py --modelos bge-m3   # gera o cache de vetores (~6 min em CPU)
+streamlit run app.py
+```
+
+Sem o Ollama rodando, a interface cai sozinha pra busca só lexical.
+
 ## Estrutura
 
 - `garimpo/dados.py` — carga, normalização de texto, validação GTIN (GS1).
@@ -31,6 +41,4 @@ pytest
 
 ## Não feito ainda (P2, ver relato §4.5)
 
-Busca semântica com modelo real (código pronto, precisa Ollama rodando),
-fusão híbrida de scores, Modo Adaptações, explicação com LLM local,
-interface Streamlit.
+Modo Adaptações, explicação com LLM local.

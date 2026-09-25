@@ -9,4 +9,5 @@ dependencies:
   - openpyxl
   - requests
   - pytest
+  - streamlit
   - pip

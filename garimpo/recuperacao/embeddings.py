@@ -42,7 +42,9 @@ class OllamaEmbedder:
     def __init__(
         self,
         modelo: str = "all-minilm",
-        base_url: str = "http://localhost:11434",
+        # 127.0.0.1, não localhost: no Windows localhost tenta IPv6 primeiro e
+        # o Ollama só escuta IPv4 — custava ~2s de timeout por requisição.
+        base_url: str = "http://127.0.0.1:11434",
         conn_cache: sqlite3.Connection | None = None,
         transporte: Transporte | None = None,
     ) -> None:
