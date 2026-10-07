@@ -1,44 +1,123 @@
 # Garimpo
 
-Busca híbrida offline (texto + embeddings locais + filtros) pro catálogo de
-autopeças de carros antigos. Spec: `Garimpo_Relato_Tecnologico.docx`.
+Offline hybrid search over a multi-supplier auto parts catalog. It combines
+character n-gram TF-IDF with local embeddings (Ollama, `bge-m3`) through
+weighted Reciprocal Rank Fusion, and runs entirely on one machine: no external
+API, no data leaving the computer.
 
-## Setup
+Built as a capstone project (Projeto Integrador IV) at Fatec Cotia, Brazil.
+
+## The problem
+
+A parts reseller for classic cars buys from 13 suppliers. Each supplier
+describes the same product differently: abbreviations, missing accents, part
+numbers glued to words, different word order. Exact-match search misses most
+of them, and the catalog is commercially confidential, so sending it to a
+hosted embedding API is not an option.
+
+Garimpo answers two questions:
+
+1. Given a free-text query such as `cabo capo uno`, which catalog rows match?
+2. Which other suppliers sell the same product, and at what price?
+
+## How it works
+
+```
+query ──► normalize ──┬─► TF-IDF char n-grams (3-5) ─► top 50 ─┐
+                      │                                         ├─► weighted RRF (3:1) ─► filters ─► results
+                      └─► bge-m3 embedding (Ollama) ─► top 50 ─┘
+```
+
+- **Lexical retrieval**: TF-IDF over character n-grams, which tolerates
+  abbreviations and typos better than word tokens.
+- **Semantic retrieval**: embeddings from a local Ollama server, held in a
+  NumPy matrix and searched by cosine similarity. Vectors are cached in SQLite
+  keyed by model and text hash, so the catalog is embedded once.
+- **Fusion**: Reciprocal Rank Fusion (Cormack et al., 2009) with a 3:1 weight
+  in favor of the lexical ranking, the best configuration in the comparison
+  below.
+- **Graceful degradation**: if Ollama is not running, search falls back to
+  lexical only and the UI says so.
+- **Cross-supplier matching**: rows sharing a valid GTIN (GS1 check digit
+  verified) are grouped to show the same product across suppliers with the
+  price spread.
+
+## Evaluation
+
+The ground truth comes from the data itself. Every row with a valid GTIN that
+appears under more than one supplier is a query; rows from other suppliers
+with the same GTIN are the relevant results. This gives a labeled set without
+manual annotation.
+
+`scripts/comparar_embeddings.py` reports Hit@1, Hit@5, Hit@10 and MRR for:
+
+- lexical only
+- semantic only, per embedding model (`all-minilm`, `bge-m3`)
+- RRF at 1:1, 2:1 and 3:1 lexical weight
+- semantic reranking of the lexical top 50
+
+Each is measured at three catalog sizes (4, 9 and 13 suppliers) to see how
+quality holds as the corpus grows.
+
+## Stack
+
+Python 3.11, pandas, NumPy, scikit-learn, SQLite (FTS5), Ollama, Streamlit,
+pytest.
+
+## Running it
 
 ```bash
 conda env create -f environment.yml
 conda activate garimpo
-# ou: pip install -r requirements.txt
+# or: pip install -r requirements.txt
 ```
 
-## Uso
+The catalog spreadsheet is not in this repository (see [Data](#data)). With
+your own file in the same layout:
 
 ```bash
-python scripts/preparar_dados.py caminho/para/BD_Proj_Integrador_5CD.xlsx
-python scripts/avaliar.py
-pytest
-```
-
-### Interface
-
-```bash
-ollama pull bge-m3                      # uma vez; depois roda sem internet
-python scripts/comparar_embeddings.py --modelos bge-m3   # gera o cache de vetores (~6 min em CPU)
+python scripts/preparar_dados.py path/to/catalog.xlsx   # load, validate, write SQLite
+python scripts/avaliar.py                               # lexical baseline metrics
+ollama pull bge-m3                                      # once; offline afterwards
+python scripts/comparar_embeddings.py --modelos bge-m3  # builds the vector cache
 streamlit run app.py
 ```
 
-Sem o Ollama rodando, a interface cai sozinha pra busca só lexical.
+Embedding the full catalog takes about 6 minutes on CPU the first time.
 
-## Estrutura
+## Tests
 
-- `garimpo/dados.py` — carga, normalização de texto, validação GTIN (GS1).
-- `garimpo/banco.py` — SQLite + índice FTS5.
-- `garimpo/recuperacao/lexical.py` — baseline TF-IDF de n-gramas de caracteres.
-- `garimpo/recuperacao/embeddings.py` — cliente Ollama com cache (embeddings locais).
-- `garimpo/avaliacao.py` — gabarito por GTIN, Hit@k / Recall@k / MRR.
-- `scripts/` — CLIs (preparar dados, avaliar).
-- `tests/` — pytest, fixtures sintéticas (não usa a planilha real).
+```bash
+pytest
+```
 
-## Não feito ainda (P2, ver relato §4.5)
+Tests use synthetic fixtures and a fake HTTP transport for the Ollama client,
+so they need neither the real spreadsheet nor a running model server.
 
-Modo Adaptações, explicação com LLM local.
+## Project layout
+
+| Path | Purpose |
+| --- | --- |
+| `garimpo/dados.py` | Spreadsheet loading, text normalization, GTIN validation |
+| `garimpo/banco.py` | SQLite schema and FTS5 index |
+| `garimpo/recuperacao/lexical.py` | TF-IDF character n-gram retrieval |
+| `garimpo/recuperacao/embeddings.py` | Ollama embedding client with SQLite cache |
+| `garimpo/recuperacao/semantica.py` | Cosine search, reranking, RRF |
+| `garimpo/busca.py` | Hybrid searcher used by the UI |
+| `garimpo/avaliacao.py` | Ground truth construction and metrics |
+| `scripts/` | Command-line entry points |
+| `app.py` | Streamlit interface |
+
+Identifiers and the interface are in Portuguese, the language of the catalog
+and of its users.
+
+## Data
+
+The catalog is confidential commercial data and is never committed. The input
+is a headerless spreadsheet with six columns: internal code, GTIN,
+description, price, NCM (tax classification) and supplier.
+
+## Not built yet
+
+- Adaptation mode: suggesting parts from other models that fit
+- Result explanations generated by a local LLM
