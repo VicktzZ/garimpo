@@ -3,6 +3,8 @@
 Busca híbrida offline (texto + embeddings locais + filtros) pro catálogo de
 autopeças de carros antigos. Spec: `Garimpo_Relato_Tecnologico.docx`.
 
+**Rodando pela primeira vez em outra máquina? Siga o [COMO_RODAR.md](COMO_RODAR.md).**
+
 ## Setup
 
 ```bash

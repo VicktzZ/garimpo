@@ -21,7 +21,7 @@ EXEMPLOS = ["cabo capo uno", "palheta s435", "filtro oleo gol", "amortecedor dia
 st.set_page_config(page_title="Garimpo", page_icon="🔎", layout="wide")
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner="Carregando catálogo e vetores (na 1ª vez pode levar alguns minutos)...")
 def carregar():
     conn = sqlite3.connect(DB)
     df = pd.read_sql("select * from pecas", conn)
@@ -52,6 +52,10 @@ def ollama_online() -> bool:
     except Exception:
         return False
 
+
+if not DB.exists():
+    st.error("Banco não encontrado. Rode antes: python scripts/preparar_dados.py <planilha.xlsx>")
+    st.stop()
 
 df, buscador, equivalentes = carregar()
 
