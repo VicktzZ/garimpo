@@ -1,20 +1,16 @@
-# Como rodar o Garimpo em outra máquina
+# Como rodar o Garimpo em outra máquina (Windows, sem conda)
 
-Passo a passo para quem acabou de pegar o repositório. Funciona em Windows,
-Linux e macOS. Depois da instalação, nada precisa de internet.
+Passo a passo testado no Windows 11 com Python 3.11 e pip. Com conda, siga o `README.md`.
+Depois da instalação, nada precisa de internet.
 
 ## O que você precisa
 
 | Item | Onde conseguir | Observação |
 |---|---|---|
-| Acesso ao repositório | Pedir ao dono do repo (VicktzZ) | O repo é privado |
 | Git | https://git-scm.com | |
-| Python 3.11 | https://www.python.org/downloads/ | No Windows, marque "Add python.exe to PATH" |
-| Ollama | https://ollama.com/download | Opcional, mas sem ele a busca é só por texto |
-| Planilha `BD_Proj_Integrador_5CD.xlsx` | Pedir ao grupo | **Não está no Git** (dados comerciais sigilosos) |
-
-Hardware: qualquer PC com 4 GB de RAM livre. GPU não é necessária; com ela a
-primeira carga fica mais rápida.
+| Python 3.11 ou 3.12 | https://www.python.org/downloads/ | Marque "Add python.exe to PATH" |
+| Ollama | https://ollama.com/download ou `winget install Ollama.Ollama` | Sem ele a busca é só por texto |
+| Pasta `data/` do Drive do grupo | Pedir ao grupo | **Não está no Git** (dados comerciais sigilosos) |
 
 ## 1. Baixar o código
 
@@ -23,118 +19,62 @@ git clone https://github.com/VicktzZ/garimpo.git
 cd garimpo
 ```
 
-## 2. Criar o ambiente Python e instalar as dependências
-
-Opção A: pip com venv (mais simples)
+## 2. Ambiente Python
 
 ```bash
 python -m venv .venv
 ```
 
-Ative o ambiente:
-
-- Windows (PowerShell): `.venv\Scripts\Activate.ps1`
-- Windows (cmd): `.venv\Scripts\activate.bat`
-- Linux/macOS: `source .venv/bin/activate`
+Ative o ambiente (PowerShell): `.venv\Scripts\Activate.ps1`. No cmd: `.venv\Scripts\activate.bat`.
+Se o PowerShell recusar o script, rode uma vez `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
 ```bash
-pip install -r requirements.txt
-```
-
-Se o PowerShell recusar o script de ativação, rode uma vez
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
-
-Opção B: conda
-
-```bash
-conda env create -f environment.yml
-conda activate garimpo
-```
-
-Para conferir que a instalação está certa, rode os testes (não usam a planilha real):
-
-```bash
+pip install pandas numpy scikit-learn openpyxl requests streamlit pytest
+pip install -e .
 pytest
 ```
 
-O esperado é todos passarem.
+O `pip install -e .` instala o pacote `autopecas` (a pasta `src/`). O esperado é todos os testes passarem.
 
-## 3. Instalar o Ollama e baixar o modelo de embeddings
+## 3. Dados
 
-1. Instale o Ollama:
-   - Windows: instalador do site, ou `winget install Ollama.Ollama`
-   - Linux: `curl -fsSL https://ollama.com/install.sh | sh`
-   - macOS: app do site
-2. Baixe o modelo (cerca de 1,2 GB, só uma vez):
+Copie a pasta `data/` do Drive por cima da pasta `data/` do repositório. O mínimo para abrir o app é
+`data/catalogo.db`, que já traz os vetores do bge-m3 calculados. Se vierem `catalogo.db-wal` e
+`catalogo.db-shm`, copie os três juntos (feche o app e o Ollama antes).
 
-   ```bash
-   ollama pull bge-m3
-   ```
-
-3. Confira se o servidor está no ar:
-
-   ```bash
-   ollama list
-   ```
-
-   No Windows e no macOS o Ollama sobe sozinho com o sistema (ícone na bandeja).
-   No Linux ele roda como serviço; se não estiver rodando, abra outro terminal e
-   use `ollama serve`.
-
-Pode pular esta etapa: o app funciona sem o Ollama, só que a busca fica apenas
-lexical (por texto) e o indicador na barra lateral fica vermelho.
-
-## 4. Gerar o banco a partir da planilha
-
-Coloque a planilha em qualquer pasta e rode, de dentro da pasta `garimpo`:
+Sem o Drive, dá para gerar tudo a partir da planilha (colocada em `data/raw/BD_Proj_Integrador_5CD.xlsx`):
 
 ```bash
-python scripts/preparar_dados.py caminho/para/BD_Proj_Integrador_5CD.xlsx
+python scripts/01_preparar_dados.py
+python scripts/06_importar_catalogo.py
 ```
 
-Isso cria `data/garimpo.db` e imprime um relatório de qualidade dos dados
-(total de linhas, GTINs válidos, fornecedores). A pasta `data/` fica fora do Git.
+Nesse caso a primeira busca híbrida calcula os vetores de todo o catálogo (alguns minutos, uma única vez).
 
-## 5. Abrir a interface
-
-Com o Ollama rodando (etapa 3):
+## 4. Ollama
 
 ```bash
-python -m streamlit run app.py
+ollama pull bge-m3          # obrigatório para a busca híbrida (~1,2 GB, uma vez)
+ollama pull llama3.2:3b     # opcional: só para o "resumo por IA local"
 ```
 
-Abra http://localhost:8501 no navegador.
+No Windows o Ollama sobe sozinho (ícone na bandeja). Confira com `ollama list`.
 
-**Na primeira vez** o app gera os vetores do catálogo inteiro (cerca de 8,8 mil
-peças) e grava em `data/embeddings_cache.db`. Leva por volta de 1 a 2 minutos com
-GPU e alguns minutos só com CPU; a tela mostra "Carregando catálogo e vetores".
-Nas vezes seguintes ele lê do cache e abre em segundos.
+## 5. Abrir o app
 
+```bash
+python -m streamlit run app/Home.py
+```
+
+Abra http://localhost:8501. O menu à esquerda tem **Home** (busca), **Atualizar catálogo** e **Adaptações**.
 Para parar, `Ctrl+C` no terminal.
-
-## Opcional: reproduzir os experimentos
-
-```bash
-python scripts/avaliar.py                                  # baseline lexical por nível
-ollama pull all-minilm
-python scripts/comparar_embeddings.py                      # lexical x embeddings x híbrida
-```
 
 ## Problemas comuns
 
-| Sintoma | Causa e solução |
+| Sintoma | Solução |
 |---|---|
-| "Banco não encontrado" na tela | Faltou a etapa 4 |
-| Indicador "🔴 offline — usando só lexical" | Ollama parado ou sem o modelo. Suba o Ollama, rode `ollama pull bge-m3` e reinicie o app |
-| Ligou o Ollama depois do app e a busca continua só lexical | Os vetores são carregados na abertura. Pare o app (`Ctrl+C`) e rode de novo |
-| `python` não é reconhecido (Windows) | Python fora do PATH. Reinstale marcando "Add python.exe to PATH" ou use `py -3.11` |
-| `ModuleNotFoundError` | Ambiente não ativado. Repita a ativação da etapa 2 |
-| Porta 8501 ocupada | `python -m streamlit run app.py --server.port 8502` |
-| Primeira abertura muito demorada | Normal sem GPU; só acontece uma vez |
-
-## Privacidade
-
-- O app só escuta em `localhost` e a telemetria do Streamlit está desligada
-  (`.streamlit/config.toml`).
-- Nenhum dado sai do computador: o Ollama roda local em `127.0.0.1:11434`.
-- Nunca faça commit da planilha nem dos arquivos `.db`; o `.gitignore` já os bloqueia.
+| `ModuleNotFoundError: autopecas` | Faltou `pip install -e .` com o ambiente ativo |
+| `ModuleNotFoundError` de pandas, streamlit etc. | Ambiente não ativado ou faltou o primeiro `pip install` da etapa 2 |
+| Aviso "catálogo ainda está vazio" | Faltou a etapa 3 |
+| Indicador "🔴 offline — usando só lexical" | Ollama parado ou sem o `bge-m3`. O app volta para a híbrida sozinho quando o Ollama voltar |
+| Porta 8501 ocupada | `python -m streamlit run app/Home.py --server.port 8502` |
