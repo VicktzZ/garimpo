@@ -29,12 +29,12 @@ Ative o ambiente (PowerShell): `.venv\Scripts\Activate.ps1`. No cmd: `.venv\Scri
 Se o PowerShell recusar o script, rode uma vez `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
 ```bash
-pip install pandas numpy scikit-learn openpyxl requests streamlit pytest
-pip install -e .
+pip install -e ".[dev]"
 pytest
 ```
 
-O `pip install -e .` instala o pacote `autopecas` (a pasta `src/`). O esperado é todos os testes passarem.
+O `pip install -e ".[dev]"` instala o pacote `autopecas` (a pasta `src/`), as dependências e o pytest.
+O esperado é todos os testes passarem.
 
 ## 3. Dados
 
@@ -66,15 +66,14 @@ No Windows o Ollama sobe sozinho (ícone na bandeja). Confira com `ollama list`.
 python -m streamlit run app/Home.py
 ```
 
-Abra http://localhost:8501. O menu à esquerda tem **Home** (busca), **Atualizar catálogo** e **Adaptações**.
+Abra http://localhost:8501. O menu à esquerda tem **Busca**, **Atualizar catálogo** e **Adaptações**.
 Para parar, `Ctrl+C` no terminal.
 
 ## Problemas comuns
 
 | Sintoma | Solução |
 |---|---|
-| `ModuleNotFoundError: autopecas` | Faltou `pip install -e .` com o ambiente ativo |
-| `ModuleNotFoundError` de pandas, streamlit etc. | Ambiente não ativado ou faltou o primeiro `pip install` da etapa 2 |
+| `ModuleNotFoundError` (autopecas, pandas, streamlit…) | Ambiente não ativado ou faltou o `pip install -e ".[dev]"` |
 | Aviso "catálogo ainda está vazio" | Faltou a etapa 3 |
 | Indicador "🔴 offline — usando só lexical" | Ollama parado ou sem o `bge-m3`. O app volta para a híbrida sozinho quando o Ollama voltar |
 | Porta 8501 ocupada | `python -m streamlit run app/Home.py --server.port 8502` |

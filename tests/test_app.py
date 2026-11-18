@@ -16,7 +16,7 @@ from autopecas.store import Catalogo  # noqa: E402
 from helpers import _Sessao, linha  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[1]
-HOME = str(RAIZ / "app" / "Home.py")
+HOME = str(RAIZ / "app" / "busca.py")
 PAGINA = str(RAIZ / "app" / "pages" / "1_Atualizar_catalogo.py")
 ADAPTACOES = str(RAIZ / "app" / "pages" / "2_Adaptacoes.py")
 

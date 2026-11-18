@@ -7,7 +7,18 @@ name = "autopecas"
 version = "0.1.0"
 description = "Garimpo - busca hibrida offline de autopecas para carros antigos (PI IV, Fatec Cotia)"
 requires-python = ">=3.11"
-dependencies = []
+# Pisos minimos para `pip install -e .` sem conda; as versoes medidas ficam fixadas no environment.yml.
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn>=1.4",
+    "openpyxl>=3.1",
+    "requests>=2.31",
+    "streamlit>=1.43",  # st.navigation e set_page_config em cada pagina
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

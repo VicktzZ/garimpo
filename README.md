@@ -5,7 +5,8 @@ Projeto Integrador IV — Fatec Cotia (Ciência de Dados, Grupo 2).
 Sistema 100% local (sem chave de API, sem enviar dados à internet) que encontra peças no
 catálogo de 13 fornecedores (8.802 linhas) combinando **busca textual (TF-IDF)**, **embeddings
 (bge-m3 via Ollama)** e **filtros**. Se o Ollama estiver parado, o app cai para a busca textual e
-avisa na tela. Adaptações por veículo e explicação por LLM local ficam para as Etapas 4 e 5.
+avisa na tela. Também tem o modo Adaptações por veículo e um resumo dos resultados (por regras, ou
+por LLM local em modo experimental).
 
 **Rodando pela primeira vez em outra máquina (Windows)? Siga o [COMO_RODAR.md](COMO_RODAR.md).**
 
@@ -14,7 +15,7 @@ avisa na tela. Adaptações por veículo e explicação por LLM local ficam para
 | Pasta | Papel | Pode importar |
 |---|---|---|
 | `src/autopecas/` | **Motor**: dados, recuperação, catálogo SQLite, busca, avaliação | só bibliotecas de dados; **nunca** Streamlit |
-| `app/` | **Interface** Streamlit (`Home.py` + `pages/`) | apenas o motor (`from autopecas...`) |
+| `app/` | **Interface** Streamlit (`Home.py` = menu, `busca.py` + `pages/`) | apenas o motor (`from autopecas...`) |
 | `scripts/` | Orquestração fina (argparse + chamadas ao motor) | motor; sem regra de negócio |
 | `tests/` | pytest — não dependem do Ollama nem da planilha | motor |
 
@@ -30,7 +31,8 @@ src/autopecas/
   retrieval/veiculo.py   regra de camadas por veículo (mesma função no app e na avaliação)
   evaluation/            gold.py (gabarito por GTIN) · metrics.py (Hit@k, Recall@k, MRR, IC95%)
                          gabarito_texto.py + runner_texto.py (gabarito manual em texto livre)
-app/Home.py              busca, filtros, status do Ollama, equivalentes por GTIN
+app/Home.py              ponto de entrada: menu das páginas (st.navigation)
+app/busca.py             busca, filtros, status do Ollama, equivalentes por GTIN
 app/pages/1_Atualizar_catalogo.py   envio da planilha, prévia e aplicação
 app/pages/2_Adaptacoes.py           peça + veículo (+ ano): citado, família, genérico; sempre a validar
 scripts/                 01 preparar · 02 avaliar · 03 ablação · 04 calibrar · 06 importar · 07 medir · 09 gabarito · 10 veículo
@@ -52,11 +54,12 @@ Parâmetros da busca híbrida (decisões do projeto): fusão RRF com peso 3:1 (l
 conda env create -f environment.yml
 conda activate garimpo-autopecas     # nome vem do campo `name:` do environment.yml
 which python                         # deve apontar para dentro de envs/garimpo-autopecas
-pip install -e .
-pytest                               # 132 testes (os do app exigem Streamlit, já no ambiente)
+pip install -e ".[dev]"
+pytest                               # 322 testes (os do app exigem Streamlit, já no ambiente)
 ```
 
-O `environment.yml` é a fonte única das dependências, inclusive o Ollama (conda-forge) e
+O `environment.yml` fixa as versões medidas das dependências (o `pyproject.toml` só traz os pisos
+mínimos, para quem instala sem conda), inclusive o Ollama (conda-forge) e
 `OLLAMA_NO_CLOUD=1`. Não use `pip --break-system-packages`. No VS Code: *Python: Select
 Interpreter* → `garimpo-autopecas`.
 
@@ -129,5 +132,5 @@ fases A e B). O histórico dele continua no Git.
 
 ## Próximos passos
 
-Etapa 3: gabarito Básico manual (código pronto; falta o grupo escrever as perguntas) · Etapa 4: modo Adaptações (código pronto; medição híbrida/bge-m3 depende do Ollama) · Etapa 5: LLM local
-para explicar o resultado · Etapa 6: avaliação final e relatório. P2: 18/11/2026.
+Etapas 3 a 5 com código pronto: gabarito manual do Básico e holdout, modo Adaptações, resumo por regras
+e LLM local experimental. Falta a Etapa 6: avaliação final e relatório. P2: 18/11/2026.
